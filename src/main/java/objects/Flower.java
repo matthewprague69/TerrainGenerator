@@ -121,6 +121,21 @@ public class Flower extends Feature {
     }
 
     @Override
+    protected float getShadowRadius() {
+        return 0.25f;
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return type.height;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.25f;
+    }
+
+    @Override
     public void dispose() {
         if (displayList != -1) {
             glDeleteLists(displayList, 1);

@@ -218,6 +218,16 @@ public class Chunk {
 
         glDisable(GL_TEXTURE_2D);
 
+        float[] shadowDir = manager.getShadowDirection();
+        float shadowStrength = manager.getShadowStrength();
+        if (shadowStrength > 0f) {
+            for (Feature f : features) {
+                if (f.y >= WATER_LEVEL) {
+                    f.drawShadow(manager, shadowDir, shadowStrength);
+                }
+            }
+        }
+
         // Draw features if they are above water
         for (Feature f : features) {
             if (f.y >= WATER_LEVEL) {
