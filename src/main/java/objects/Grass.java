@@ -140,6 +140,21 @@ public class Grass extends Feature {
     }
 
     @Override
+    protected float getShadowRadius() {
+        return 0.5f;
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return BLADE_BASE_HEIGHT + BLADE_HEIGHT_VARIATION;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.2f;
+    }
+
+    @Override
     public void dispose() {
         glDeleteBuffers(vboId);
     }

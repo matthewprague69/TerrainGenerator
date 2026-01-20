@@ -320,4 +320,12 @@ public class TerrainManager {
     public long getSeed() {
         return seed;
     }
+
+    public float[] getShadowDirection() {
+        return skyRenderer.getShadowDirection();
+    }
+
+    public float getShadowStrength() {
+        return skyRenderer.getShadowStrength();
+    }
 }

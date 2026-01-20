@@ -15,6 +15,7 @@ public class Tree extends Feature {
     private final int leafTex;
     private final TreeType type;
     private final boolean hasLeaves;
+    private final float height;
 
     private static final Map<TreeType, Branch> spruceTemplateCache = new HashMap<>();
     private static final Map<TreeType, Integer> spruceDisplayLists = new HashMap<>();
@@ -31,7 +32,7 @@ public class Tree extends Feature {
         this.barkTex = TextureLoader.getOrLoad(type.trunkTex);
         this.leafTex = TextureLoader.getOrLoad(type.leafTex);
 
-        float height = type.minHeight + rand.nextFloat() * (type.maxHeight - type.minHeight);
+        this.height = type.minHeight + rand.nextFloat() * (type.maxHeight - type.minHeight);
 
         if (type.renderStyle == TreeRenderStyle.SPRUCE) {
             Branch template = getOrCreateSpruceTemplate(type, height);
@@ -280,6 +281,21 @@ public class Tree extends Feature {
         glDisable(GL_BLEND);
         glDisable(GL_TEXTURE_2D);
         glPopMatrix();
+    }
+
+    @Override
+    protected float getShadowRadius() {
+        return Math.max(type.leafSize * 0.7f, type.baseThickness * 1.8f);
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return height;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.5f;
     }
 
     private void drawBranchRecursive(Branch branch, int depth) {
