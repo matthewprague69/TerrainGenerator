@@ -64,6 +64,8 @@ public class ShadowRenderer {
 
         glViewport(0, 0, shadowSize, shadowSize);
         glBindFramebuffer(GL_FRAMEBUFFER, depthFbo);
+        glEnable(GL_DEPTH_TEST);
+        glClearDepth(1.0f);
         glClear(GL_DEPTH_BUFFER_BIT);
 
         glMatrixMode(GL_PROJECTION);
@@ -76,9 +78,12 @@ public class ShadowRenderer {
         glDisable(GL_BLEND);
         glDisable(GL_TEXTURE_2D);
         glDisable(GL_LIGHTING);
+        glEnable(GL_POLYGON_OFFSET_FILL);
+        glPolygonOffset(1.5f, 4.0f);
 
         terrain.drawDepth();
 
+        glDisable(GL_POLYGON_OFFSET_FILL);
         glColorMask(true, true, true, true);
         depthShader.stop();
         glBindFramebuffer(GL_FRAMEBUFFER, 0);

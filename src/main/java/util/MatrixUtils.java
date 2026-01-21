@@ -12,13 +12,13 @@ public class MatrixUtils {
 
     public static float[] multiply(float[] a, float[] b) {
         float[] result = new float[16];
-        for (int row = 0; row < 4; row++) {
-            for (int col = 0; col < 4; col++) {
-                result[col + row * 4] =
-                        a[row * 4] * b[col] +
-                        a[row * 4 + 1] * b[col + 4] +
-                        a[row * 4 + 2] * b[col + 8] +
-                        a[row * 4 + 3] * b[col + 12];
+        for (int col = 0; col < 4; col++) {
+            for (int row = 0; row < 4; row++) {
+                result[col * 4 + row] =
+                        a[0 * 4 + row] * b[col * 4 + 0] +
+                        a[1 * 4 + row] * b[col * 4 + 1] +
+                        a[2 * 4 + row] * b[col * 4 + 2] +
+                        a[3 * 4 + row] * b[col * 4 + 3];
             }
         }
         return result;
