@@ -10,6 +10,7 @@ public class Cactus extends Feature {
     private final List<Segment> segments = new ArrayList<>();
     private final int texture;
     private final Random rand;
+    private final float maxHeight;
 
     private static final int SEGMENTS = 16; // More sides for rounder cactus
 
@@ -38,6 +39,12 @@ public class Cactus extends Feature {
                 segments.add(new Segment(splitHeight, 0.1f, offsetY + armHeight * 0.5f, angle + rand.nextFloat() * 60f - 30f));
             }
         }
+
+        float maxSegmentHeight = 0f;
+        for (Segment segment : segments) {
+            maxSegmentHeight = Math.max(maxSegmentHeight, segment.offsetY + segment.height);
+        }
+        this.maxHeight = maxSegmentHeight;
     }
 
     @Override
@@ -66,6 +73,21 @@ public class Cactus extends Feature {
         glDisable(GL_TEXTURE_2D);
         glDisable(GL_BLEND);
         glPopMatrix();
+    }
+
+    @Override
+    protected float getShadowRadius() {
+        return 0.6f;
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return maxHeight;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.45f;
     }
 
     private void drawTexturedCylinder(float baseRadius, float height) {
