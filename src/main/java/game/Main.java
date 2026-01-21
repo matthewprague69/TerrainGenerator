@@ -178,6 +178,7 @@ public class Main {
             sky.update(dt);
 
             float[] lightDir = sky.getShadowDirection();
+            float lightStrength = sky.getSkyBrightness();
             float[] lightMatrix = shadowRenderer.renderShadowMap(
                     terrain,
                     lightDir,
@@ -202,7 +203,7 @@ public class Main {
             sky.setLightDirectionFixed(); // Then set light in world space
 
 
-            shadowRenderer.beginScenePass(lightMatrix, lightDir);
+            shadowRenderer.beginScenePass(lightMatrix, lightDir, lightStrength);
             terrain.draw();
             shadowRenderer.endScenePass();
 

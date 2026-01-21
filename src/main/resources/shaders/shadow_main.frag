@@ -7,10 +7,14 @@ uniform sampler2D uDiffuse;
 uniform sampler2D uShadowMap;
 uniform int uUseTexture;
 uniform vec3 uLightDir;
+uniform float uLightStrength;
 
 float computeShadow(vec4 shadowCoord, vec3 normal, vec3 lightDir) {
     vec3 proj = shadowCoord.xyz / shadowCoord.w;
     if (proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0) {
+        return 1.0;
+    }
+    if (proj.z < 0.0 || proj.z > 1.0) {
         return 1.0;
     }
     float bias = max(0.0005, 0.0025 * (1.0 - dot(normal, -lightDir)));
@@ -34,8 +38,11 @@ void main() {
     vec3 normal = normalize(vNormal);
     vec3 lightDir = normalize(uLightDir);
     float ndl = max(dot(normal, -lightDir), 0.0);
-    float ambient = 0.35;
-    float lighting = ambient + ndl * 0.65;
+    float ambient = mix(0.08, 0.35, uLightStrength);
+    float diffuse = ndl * mix(0.05, 0.65, uLightStrength);
+    float lighting = ambient + diffuse;
     float shadow = computeShadow(vShadowCoord * 0.5 + 0.5, normal, lightDir);
-    gl_FragColor = vec4(baseColor.rgb * lighting * shadow, baseColor.a);
+    float shadowStrength = mix(0.25, 0.8, uLightStrength);
+    float shadowed = mix(1.0, shadow, shadowStrength);
+    gl_FragColor = vec4(baseColor.rgb * lighting * shadowed, baseColor.a);
 }

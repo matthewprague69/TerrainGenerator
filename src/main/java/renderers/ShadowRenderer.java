@@ -25,6 +25,7 @@ public class ShadowRenderer {
     private final int sceneDiffuseLoc;
     private final int sceneUseTextureLoc;
     private final int sceneLightDirLoc;
+    private final int sceneLightStrengthLoc;
     private float[] lastLightMatrix = MatrixUtils.identity();
 
     public ShadowRenderer(int shadowSize) {
@@ -58,6 +59,7 @@ public class ShadowRenderer {
         sceneDiffuseLoc = sceneShader.getUniformLocation("uDiffuse");
         sceneUseTextureLoc = sceneShader.getUniformLocation("uUseTexture");
         sceneLightDirLoc = sceneShader.getUniformLocation("uLightDir");
+        sceneLightStrengthLoc = sceneShader.getUniformLocation("uLightStrength");
     }
 
     public float[] renderShadowMap(TerrainManager terrain, float[] lightDir, float centerX, float centerY, float centerZ,
@@ -94,11 +96,12 @@ public class ShadowRenderer {
         return lastLightMatrix;
     }
 
-    public void beginScenePass(float[] lightMatrix, float[] lightDir) {
+    public void beginScenePass(float[] lightMatrix, float[] lightDir, float lightStrength) {
         active = this;
         sceneShader.use();
         sceneShader.setUniformMatrix4(sceneLightMatrixLoc, toBuffer(lightMatrix));
         sceneShader.setUniform3f(sceneLightDirLoc, lightDir[0], lightDir[1], lightDir[2]);
+        sceneShader.setUniform1f(sceneLightStrengthLoc, lightStrength);
         sceneShader.setUniform1i(sceneShadowMapLoc, 1);
         sceneShader.setUniform1i(sceneDiffuseLoc, 0);
         sceneShader.setUniform1i(sceneUseTextureLoc, 1);
