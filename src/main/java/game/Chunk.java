@@ -199,7 +199,26 @@ public class Chunk {
         }
     }
 
+    private void addTriangle(Map<Integer, FloatBuilder> builders, int x1, int z1, int x2, int z2, int x3, int z3,
+            float y1, float y2, float y3, float texScale) {
+        float slope = (computeSlope(x1, z1) + computeSlope(x2, z2) + computeSlope(x3, z3)) / 3f;
+        float height = Math.max(y1, Math.max(y2, y3));
+        int tex = pickTexture(height, slope);
 
+        FloatBuilder builder = builders.computeIfAbsent(tex, key -> new FloatBuilder());
+        float[] normal = computeNormal(x1, z1, x2, z2, x3, z3);
+
+        float wx1 = (cx * SIZE + x1) * scale;
+        float wz1 = (cz * SIZE + z1) * scale;
+        float wx2 = (cx * SIZE + x2) * scale;
+        float wz2 = (cz * SIZE + z2) * scale;
+        float wx3 = (cx * SIZE + x3) * scale;
+        float wz3 = (cz * SIZE + z3) * scale;
+
+        builder.putVertex(wx1, y1, wz1, normal, x1 * texScale, z1 * texScale);
+        builder.putVertex(wx2, y2, wz2, normal, x2 * texScale, z2 * texScale);
+        builder.putVertex(wx3, y3, wz3, normal, x3 * texScale, z3 * texScale);
+    }
 
     private void buildWaterDisplayList() {
         waterDisplayList = glGenLists(1);
@@ -635,12 +654,18 @@ public class Chunk {
         disposeGrassBatch();
     }
 
-    public OpenSimplexNoise getTerrainNoise() {
-        return terrainNoise;
-    }
+    private static final int STRIDE_FLOATS = 8;
 
-    public float getScale() {
-        return scale;
+    private static final class TerrainBatch {
+        private final int textureId;
+        private final int vboId;
+        private final int vertexCount;
+
+        private TerrainBatch(int textureId, int vboId, int vertexCount) {
+            this.textureId = textureId;
+            this.vboId = vboId;
+            this.vertexCount = vertexCount;
+        }
     }
 
     public int getLOD() {
