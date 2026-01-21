@@ -117,9 +117,7 @@ public class Flower extends Feature {
     public void draw() {
         glPushMatrix();
         glTranslatef(x, y, z);
-        ShadowRenderer.setUseTexture(false);
         glCallList(displayList);
-        ShadowRenderer.setUseTexture(true);
         glPopMatrix();
     }
 

@@ -179,19 +179,40 @@ public class Chunk {
     }
 
     public void drawTerrainAndFeatures() {
+        float texScale = 0.2f;
         glEnable(GL_TEXTURE_2D);
         glColor3f(1f, 1f, 1f);
 
-        renderTerrainBuffers();
-        renderGrassBatch();
+        int step = (int) Math.pow(2, lod);
+        for (int z = 0; z < SIZE; z += step) {
+            for (int x = 0; x < SIZE; x += step) {
+                if (x + step > SIZE || z + step > SIZE)
+                    continue;
+
+                float y00 = heights[x][z];
+                float y10 = heights[x + step][z];
+                float y01 = heights[x][z + step];
+                float y11 = heights[x + step][z + step];
+
+                drawTriangle(x, z, x + step, z, x, z + step, y00, y10, y01, texScale);
+                drawTriangle(x + step, z, x + step, z + step, x, z + step, y10, y11, y01, texScale);
+            }
+        }
 
         glDisable(GL_TEXTURE_2D);
 
+        float[] shadowDir = manager.getShadowDirection();
+        float shadowStrength = manager.getShadowStrength();
+        if (shadowStrength > 0f) {
+            for (Feature f : features) {
+                if (f.y >= WATER_LEVEL) {
+                    f.drawShadow(manager, shadowDir, shadowStrength);
+                }
+            }
+        }
+
         // Draw features if they are above water
         for (Feature f : features) {
-            if (f instanceof Grass) {
-                continue;
-            }
             if (f.y >= WATER_LEVEL) {
                 f.draw();
             }
