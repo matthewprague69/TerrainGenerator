@@ -11,7 +11,7 @@ import static org.lwjgl.opengl.GL15.*;
 import java.nio.FloatBuffer;
 import java.util.Random;
 
-public class Grass extends Feature {
+public class Grass extends Feature implements BatchableFeature {
     private static final int BLADE_COUNT = 32;
 
     private static final float BLADE_HALF_BASE = 0.04f;
@@ -169,5 +169,14 @@ public class Grass extends Feature {
     @Override
     public void dispose() {
         glDeleteBuffers(vboId);
+    }
+
+    public void appendToBatch(VertexBatchBuilder builder) {
+        builder.append(verticesData, x, y, z);
+    }
+
+    @Override
+    public int getBatchTextureId() {
+        return textureId;
     }
 }
