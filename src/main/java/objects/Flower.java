@@ -1,4 +1,5 @@
 package objects;
+import renderers.ShadowRenderer;
 import util.FeatureUtil;
 
 import static org.lwjgl.opengl.GL11.*;
@@ -116,8 +117,25 @@ public class Flower extends Feature {
     public void draw() {
         glPushMatrix();
         glTranslatef(x, y, z);
+        ShadowRenderer.setUseTexture(false);
         glCallList(displayList);
+        ShadowRenderer.setUseTexture(true);
         glPopMatrix();
+    }
+
+    @Override
+    protected float getShadowRadius() {
+        return 0.25f;
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return type.height;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.25f;
     }
 
     @Override
