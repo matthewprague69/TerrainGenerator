@@ -170,12 +170,4 @@ public class Grass extends Feature {
     public void dispose() {
         glDeleteBuffers(vboId);
     }
-
-    public void appendToBatch(VertexBatchBuilder builder) {
-        builder.append(verticesData, x, y, z);
-    }
-
-    public int getTextureId() {
-        return textureId;
-    }
 }

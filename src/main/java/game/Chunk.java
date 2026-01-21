@@ -179,19 +179,40 @@ public class Chunk {
     }
 
     public void drawTerrainAndFeatures() {
+        float texScale = 0.2f;
         glEnable(GL_TEXTURE_2D);
         glColor3f(1f, 1f, 1f);
 
-        renderTerrainBuffers();
-        renderGrassBatch();
+        int step = (int) Math.pow(2, lod);
+        for (int z = 0; z < SIZE; z += step) {
+            for (int x = 0; x < SIZE; x += step) {
+                if (x + step > SIZE || z + step > SIZE)
+                    continue;
+
+                float y00 = heights[x][z];
+                float y10 = heights[x + step][z];
+                float y01 = heights[x][z + step];
+                float y11 = heights[x + step][z + step];
+
+                drawTriangle(x, z, x + step, z, x, z + step, y00, y10, y01, texScale);
+                drawTriangle(x + step, z, x + step, z + step, x, z + step, y10, y11, y01, texScale);
+            }
+        }
 
         glDisable(GL_TEXTURE_2D);
 
+        float[] shadowDir = manager.getShadowDirection();
+        float shadowStrength = manager.getShadowStrength();
+        if (shadowStrength > 0f) {
+            for (Feature f : features) {
+                if (f.y >= WATER_LEVEL) {
+                    f.drawShadow(manager, shadowDir, shadowStrength);
+                }
+            }
+        }
+
         // Draw features if they are above water
         for (Feature f : features) {
-            if (f instanceof Grass) {
-                continue;
-            }
             if (f.y >= WATER_LEVEL) {
                 f.draw();
             }
@@ -413,32 +434,6 @@ public class Chunk {
         builder.putVertex(wx1, y1, wz1, normal, x1 * texScale, z1 * texScale);
         builder.putVertex(wx2, y2, wz2, normal, x2 * texScale, z2 * texScale);
         builder.putVertex(wx3, y3, wz3, normal, x3 * texScale, z3 * texScale);
-    }
-
-    private void drawTriangle(int x1, int z1, int x2, int z2, int x3, int z3, float y1, float y2, float y3,
-            float texScale) {
-        float slope = (computeSlope(x1, z1) + computeSlope(x2, z2) + computeSlope(x3, z3)) / 3f;
-        float height = Math.max(y1, Math.max(y2, y3));
-        int tex = pickTexture(height, slope);
-
-        float wx1 = (cx * SIZE + x1) * scale;
-        float wz1 = (cz * SIZE + z1) * scale;
-        float wx2 = (cx * SIZE + x2) * scale;
-        float wz2 = (cz * SIZE + z2) * scale;
-        float wx3 = (cx * SIZE + x3) * scale;
-        float wz3 = (cz * SIZE + z3) * scale;
-
-        glBindTexture(GL_TEXTURE_2D, tex);
-        glBegin(GL_TRIANGLES);
-        float[] normal = computeNormal(x1, z1, x2, z2, x3, z3);
-        glNormal3f(normal[0], normal[1], normal[2]);
-        glTexCoord2f(x1 * texScale, z1 * texScale);
-        glVertex3f(wx1, y1, wz1);
-        glTexCoord2f(x2 * texScale, z2 * texScale);
-        glVertex3f(wx2, y2, wz2);
-        glTexCoord2f(x3 * texScale, z3 * texScale);
-        glVertex3f(wx3, y3, wz3);
-        glEnd();
     }
 
     public List<Feature> getFeatures() {
