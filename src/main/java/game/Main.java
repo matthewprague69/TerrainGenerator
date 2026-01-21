@@ -202,7 +202,7 @@ public class Main {
             sky.setLightDirectionFixed(); // Then set light in world space
 
 
-            shadowRenderer.beginScenePass(lightMatrix);
+            shadowRenderer.beginScenePass(lightMatrix, lightDir);
             terrain.draw();
             shadowRenderer.endScenePass();
 

@@ -1,19 +1,29 @@
 varying vec4 vShadowCoord;
 varying vec2 vTexCoord;
 varying vec4 vColor;
+varying vec3 vNormal;
 
 uniform sampler2D uDiffuse;
 uniform sampler2D uShadowMap;
 uniform int uUseTexture;
+uniform vec3 uLightDir;
 
-float computeShadow(vec4 shadowCoord) {
+float computeShadow(vec4 shadowCoord, vec3 normal, vec3 lightDir) {
     vec3 proj = shadowCoord.xyz / shadowCoord.w;
     if (proj.x < 0.0 || proj.x > 1.0 || proj.y < 0.0 || proj.y > 1.0) {
         return 1.0;
     }
-    float depth = texture2D(uShadowMap, proj.xy).r;
-    float bias = 0.003;
-    return (proj.z - bias) > depth ? 0.5 : 1.0;
+    float bias = max(0.0005, 0.0025 * (1.0 - dot(normal, -lightDir)));
+    float shadow = 0.0;
+    float texel = 1.0 / 2048.0;
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            vec2 offset = vec2(float(x), float(y)) * texel;
+            float depth = texture2D(uShadowMap, proj.xy + offset).r;
+            shadow += (proj.z - bias) > depth ? 0.0 : 1.0;
+        }
+    }
+    return shadow / 9.0;
 }
 
 void main() {
@@ -21,6 +31,11 @@ void main() {
     if (uUseTexture == 1) {
         baseColor *= texture2D(uDiffuse, vTexCoord);
     }
-    float shadow = computeShadow(vShadowCoord * 0.5 + 0.5);
-    gl_FragColor = vec4(baseColor.rgb * shadow, baseColor.a);
+    vec3 normal = normalize(vNormal);
+    vec3 lightDir = normalize(uLightDir);
+    float ndl = max(dot(normal, -lightDir), 0.0);
+    float ambient = 0.35;
+    float lighting = ambient + ndl * 0.65;
+    float shadow = computeShadow(vShadowCoord * 0.5 + 0.5, normal, lightDir);
+    gl_FragColor = vec4(baseColor.rgb * lighting * shadow, baseColor.a);
 }

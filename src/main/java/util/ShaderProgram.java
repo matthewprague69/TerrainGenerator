@@ -51,6 +51,10 @@ public class ShaderProgram {
         glUniform1i(location, value);
     }
 
+    public void setUniform3f(int location, float x, float y, float z) {
+        glUniform3f(location, x, y, z);
+    }
+
     private int compileShader(String source, int type) {
         int id = glCreateShader(type);
         glShaderSource(id, source);

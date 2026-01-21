@@ -24,6 +24,7 @@ public class ShadowRenderer {
     private final int sceneShadowMapLoc;
     private final int sceneDiffuseLoc;
     private final int sceneUseTextureLoc;
+    private final int sceneLightDirLoc;
     private float[] lastLightMatrix = MatrixUtils.identity();
 
     public ShadowRenderer(int shadowSize) {
@@ -56,6 +57,7 @@ public class ShadowRenderer {
         sceneShadowMapLoc = sceneShader.getUniformLocation("uShadowMap");
         sceneDiffuseLoc = sceneShader.getUniformLocation("uDiffuse");
         sceneUseTextureLoc = sceneShader.getUniformLocation("uUseTexture");
+        sceneLightDirLoc = sceneShader.getUniformLocation("uLightDir");
     }
 
     public float[] renderShadowMap(TerrainManager terrain, float[] lightDir, float centerX, float centerY, float centerZ,
@@ -69,7 +71,7 @@ public class ShadowRenderer {
         glClear(GL_DEPTH_BUFFER_BIT);
 
         glMatrixMode(GL_PROJECTION);
-        glLoadMatrixf(toBuffer(MatrixUtils.ortho(-120f, 120f, -120f, 120f, -200f, 200f)));
+        glLoadMatrixf(toBuffer(buildLightProjectionMatrix()));
         glMatrixMode(GL_MODELVIEW);
         glLoadMatrixf(toBuffer(buildLightViewMatrix(lightDir, centerX, centerY, centerZ)));
 
@@ -92,10 +94,11 @@ public class ShadowRenderer {
         return lastLightMatrix;
     }
 
-    public void beginScenePass(float[] lightMatrix) {
+    public void beginScenePass(float[] lightMatrix, float[] lightDir) {
         active = this;
         sceneShader.use();
         sceneShader.setUniformMatrix4(sceneLightMatrixLoc, toBuffer(lightMatrix));
+        sceneShader.setUniform3f(sceneLightDirLoc, lightDir[0], lightDir[1], lightDir[2]);
         sceneShader.setUniform1i(sceneShadowMapLoc, 1);
         sceneShader.setUniform1i(sceneDiffuseLoc, 0);
         sceneShader.setUniform1i(sceneUseTextureLoc, 1);
@@ -120,8 +123,12 @@ public class ShadowRenderer {
 
     private float[] buildLightMatrix(float[] lightDir, float centerX, float centerY, float centerZ) {
         float[] view = buildLightViewMatrix(lightDir, centerX, centerY, centerZ);
-        float[] proj = MatrixUtils.ortho(-120f, 120f, -120f, 120f, -200f, 200f);
+        float[] proj = buildLightProjectionMatrix();
         return MatrixUtils.multiply(proj, view);
+    }
+
+    private float[] buildLightProjectionMatrix() {
+        return MatrixUtils.ortho(-120f, 120f, -120f, 120f, 0.1f, 260f);
     }
 
     private float[] buildLightViewMatrix(float[] lightDir, float centerX, float centerY, float centerZ) {
