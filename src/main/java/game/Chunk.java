@@ -635,12 +635,18 @@ public class Chunk {
         disposeGrassBatch();
     }
 
-    public OpenSimplexNoise getTerrainNoise() {
-        return terrainNoise;
-    }
+    private static final int STRIDE_FLOATS = 8;
 
-    public float getScale() {
-        return scale;
+    private static final class TerrainBatch {
+        private final int textureId;
+        private final int vboId;
+        private final int vertexCount;
+
+        private TerrainBatch(int textureId, int vboId, int vertexCount) {
+            this.textureId = textureId;
+            this.vboId = vboId;
+            this.vertexCount = vertexCount;
+        }
     }
 
     public int getLOD() {
