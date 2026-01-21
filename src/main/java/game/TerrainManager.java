@@ -203,6 +203,12 @@ public class TerrainManager {
         }
     }
 
+    public void drawDepth() {
+        for (Chunk c : chunks.values()) {
+            c.renderDepth();
+        }
+    }
+
     private void enableFogDynamic() {
         glEnable(GL_FOG);
         glFogi(GL_FOG_MODE, GL_LINEAR);
@@ -319,5 +325,13 @@ public class TerrainManager {
 
     public long getSeed() {
         return seed;
+    }
+
+    public float[] getShadowDirection() {
+        return skyRenderer.getShadowDirection();
+    }
+
+    public float getShadowStrength() {
+        return skyRenderer.getShadowStrength();
     }
 }
