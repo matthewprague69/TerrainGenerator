@@ -160,7 +160,7 @@ public class SkyRenderer {
         glEnable(GL_LIGHTING);
     }
 
-    private float[] getSunDirection() {
+    public float[] getSunDirection() {
         float angle = (timeOfDay - 0.25f) * 360f;
         double radians = Math.toRadians(angle);
         float x = 0f;
@@ -168,6 +168,19 @@ public class SkyRenderer {
         float z = (float) Math.cos(radians);
         float len = (float) Math.sqrt(x * x + y * y + z * z);
         return new float[] { x / len, y / len, z / len };
+    }
+
+    public float[] getShadowDirection() {
+        float[] sunDir = getSunDirection();
+        float brightness = getSkyBrightness();
+        if (brightness > 0f) {
+            return new float[] { -sunDir[0], -sunDir[1], -sunDir[2] };
+        }
+        return new float[] { sunDir[0], sunDir[1], sunDir[2] };
+    }
+
+    public float getShadowStrength() {
+        return Math.min(0.65f, getSkyBrightness());
     }
 
     private void drawSphere(float cx, float cy, float cz, float r) {
