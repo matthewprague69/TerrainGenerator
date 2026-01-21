@@ -3,6 +3,7 @@ package objects;
 import util.FeatureUtil;
 import util.TextureLoader;
 import org.lwjgl.BufferUtils;
+import util.VertexBatchBuilder;
 
 import static org.lwjgl.opengl.GL11.*;
 import static org.lwjgl.opengl.GL15.*;
@@ -24,6 +25,7 @@ public class Grass extends Feature {
     private final int vboId;
     private final boolean textured;
     private final float r, g, b;
+    private final float[] verticesData;
 
     private static final FloatBuffer verticesBuffer =
             BufferUtils.createFloatBuffer(BLADE_COUNT * 8 * 5);
@@ -40,6 +42,7 @@ public class Grass extends Feature {
 
         this.textureId = TextureLoader.getOrLoad(textureName); // always per-instance load
 
+        this.verticesData = new float[BLADE_COUNT * 8 * 5];
         generateGrassVertices();
         vboId = uploadToGPU();
     }
@@ -55,6 +58,7 @@ public class Grass extends Feature {
         this.b = b;
         this.textureId = -1; // no texture if manually colored
 
+        this.verticesData = new float[BLADE_COUNT * 8 * 5];
         generateGrassVertices();
         vboId = uploadToGPU();
     }
@@ -70,6 +74,7 @@ public class Grass extends Feature {
     private void generateGrassVertices() {
         verticesBuffer.clear();
 
+        int index = 0;
         for (int i = 0; i < BLADE_COUNT; i++) {
             float offsetX = (rand.nextFloat() - 0.5f) * SPREAD;
             float offsetZ = (rand.nextFloat() - 0.5f) * SPREAD;
@@ -82,23 +87,30 @@ public class Grass extends Feature {
                 float cos = (float) Math.cos(a);
                 float sin = (float) Math.sin(a);
 
-                putRotated(offsetX, offsetZ, -BLADE_HALF_BASE, 0f, cos, sin, 0f, 0f);
-                putRotated(offsetX, offsetZ,  BLADE_HALF_BASE, 0f, cos, sin, 1f, 0f);
-                putRotated(offsetX, offsetZ,  BLADE_HALF_TOP + lean, height, cos, sin, 1f, 1f);
-                putRotated(offsetX, offsetZ, -BLADE_HALF_TOP + lean, height, cos, sin, 0f, 1f);
+                index = putRotated(offsetX, offsetZ, -BLADE_HALF_BASE, 0f, cos, sin, 0f, 0f, index);
+                index = putRotated(offsetX, offsetZ,  BLADE_HALF_BASE, 0f, cos, sin, 1f, 0f, index);
+                index = putRotated(offsetX, offsetZ,  BLADE_HALF_TOP + lean, height, cos, sin, 1f, 1f, index);
+                index = putRotated(offsetX, offsetZ, -BLADE_HALF_TOP + lean, height, cos, sin, 0f, 1f, index);
             }
         }
 
         verticesBuffer.flip();
     }
 
-    private void putRotated(float offX, float offZ,
+    private int putRotated(float offX, float offZ,
                             float localX, float localY,
                             float cos, float sin,
-                            float u, float v) {
+                            float u, float v,
+                            int index) {
         float x = offX + localX * cos;
         float z = offZ + localX * sin;
         verticesBuffer.put(x).put(localY).put(z).put(u).put(v);
+        verticesData[index++] = x;
+        verticesData[index++] = localY;
+        verticesData[index++] = z;
+        verticesData[index++] = u;
+        verticesData[index++] = v;
+        return index;
     }
 
     @Override

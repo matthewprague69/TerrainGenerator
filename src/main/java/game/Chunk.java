@@ -1,13 +1,16 @@
 package game;
 import generators.LakeGenerator;
 import objects.Feature;
+import objects.Grass;
 import objects.Lake;
 import spawners.FeatureSpawner;
 import spawners.LakeSpawner;
 import util.BoundingBox;
 import util.FeatureUtil;
+import util.VertexBatchBuilder;
 
 import static org.lwjgl.opengl.GL11.*;
+import static org.lwjgl.opengl.GL15.*;
 import java.util.*;
 
 public class Chunk {
@@ -24,6 +27,11 @@ public class Chunk {
     private final boolean[][] featureMask = new boolean[SIZE][SIZE];
     private final boolean[][] lakeMask = new boolean[SIZE][SIZE];
     private boolean featuresGenerated = false;
+    private final List<TerrainBatch> terrainBatches = new ArrayList<>();
+    private int waterDisplayList = -1;
+    private int grassBatchVbo = -1;
+    private int grassBatchVertexCount = 0;
+    private int grassBatchTexture = 0;
     public static final float WATER_LEVEL = 4.0f;
     public static final float WATER_SURROUNDING_LEVEL = 5.5f;
     public static final float ABSOLUTE_WATER_BOTTOM_HEIGHT = 1.0f;
@@ -104,6 +112,9 @@ public class Chunk {
         if (generateFeatures)
             generateFeatures();
         stitchEdges();
+        buildTerrainBuffers();
+        buildWaterDisplayList();
+        buildGrassBatch();
 
     }
 
@@ -117,36 +128,8 @@ public class Chunk {
         glEnable(GL_FOG); // <<< ADD THIS
         glColor4f(0.2f, 0.5f, 0.8f, 0.6f); // Water color (already fine)
 
-        int step = (int) Math.pow(2, lod);
-
-        for (int z = 0; z < SIZE; z += step) {
-            for (int x = 0; x < SIZE; x += step) {
-                if (x + step > SIZE || z + step > SIZE)
-                    continue;
-
-                float y00 = heights[x][z];
-                float y10 = heights[x + step][z];
-                float y01 = heights[x][z + step];
-                float y11 = heights[x + step][z + step];
-
-                boolean needsWater =
-                        y00 < WATER_LEVEL || y10 < WATER_LEVEL || y01 < WATER_LEVEL || y11 < WATER_LEVEL;
-
-                if (needsWater) {
-                    float wx1 = (cx * SIZE + x) * scale;
-                    float wz1 = (cz * SIZE + z) * scale;
-                    float wx2 = (cx * SIZE + x + step) * scale;
-                    float wz2 = (cz * SIZE + z + step) * scale;
-
-                    glBegin(GL_QUADS);
-                    glNormal3f(0f, 1f, 0f);
-                    glVertex3f(wx1, WATER_LEVEL, wz1);
-                    glVertex3f(wx2, WATER_LEVEL, wz1);
-                    glVertex3f(wx2, WATER_LEVEL, wz2);
-                    glVertex3f(wx1, WATER_LEVEL, wz2);
-                    glEnd();
-                }
-            }
+        if (waterDisplayList != -1) {
+            glCallList(waterDisplayList);
         }
 
         glDepthMask(true); // Re-enable depth writing
@@ -238,11 +221,208 @@ public class Chunk {
 
 
 
-    private void drawTriangle(int x1, int z1, int x2, int z2, int x3, int z3, float y1, float y2, float y3,
-            float texScale) {
+    private void buildWaterDisplayList() {
+        waterDisplayList = glGenLists(1);
+        if (waterDisplayList != -1) {
+            glNewList(waterDisplayList, GL_COMPILE);
+            buildWaterGeometry();
+            glEndList();
+        }
+    }
+
+    private void buildTerrainBuffers() {
+        disposeTerrainBuffers();
+        Map<Integer, FloatBuilder> builders = new HashMap<>();
+        float texScale = 0.2f;
+        int step = (int) Math.pow(2, lod);
+        for (int z = 0; z < SIZE; z += step) {
+            for (int x = 0; x < SIZE; x += step) {
+                if (x + step > SIZE || z + step > SIZE)
+                    continue;
+
+                float y00 = heights[x][z];
+                float y10 = heights[x + step][z];
+                float y01 = heights[x][z + step];
+                float y11 = heights[x + step][z + step];
+
+                addTriangle(builders, x, z, x + step, z, x, z + step, y00, y10, y01, texScale);
+                addTriangle(builders, x + step, z, x + step, z + step, x, z + step, y10, y11, y01, texScale);
+            }
+        }
+
+        for (Map.Entry<Integer, FloatBuilder> entry : builders.entrySet()) {
+            FloatBuilder builder = entry.getValue();
+            if (builder.size == 0) {
+                continue;
+            }
+            int vboId = glGenBuffers();
+            glBindBuffer(GL_ARRAY_BUFFER, vboId);
+            glBufferData(GL_ARRAY_BUFFER, builder.toBuffer(), GL_STATIC_DRAW);
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            terrainBatches.add(new TerrainBatch(entry.getKey(), vboId, builder.size / STRIDE_FLOATS));
+        }
+    }
+
+    private void buildWaterGeometry() {
+        int step = (int) Math.pow(2, lod);
+
+        for (int z = 0; z < SIZE; z += step) {
+            for (int x = 0; x < SIZE; x += step) {
+                if (x + step > SIZE || z + step > SIZE)
+                    continue;
+
+                float y00 = heights[x][z];
+                float y10 = heights[x + step][z];
+                float y01 = heights[x][z + step];
+                float y11 = heights[x + step][z + step];
+
+                boolean needsWater =
+                        y00 < WATER_LEVEL || y10 < WATER_LEVEL || y01 < WATER_LEVEL || y11 < WATER_LEVEL;
+
+                if (needsWater) {
+                    float wx1 = (cx * SIZE + x) * scale;
+                    float wz1 = (cz * SIZE + z) * scale;
+                    float wx2 = (cx * SIZE + x + step) * scale;
+                    float wz2 = (cz * SIZE + z + step) * scale;
+
+                    glBegin(GL_QUADS);
+                    glNormal3f(0f, 1f, 0f);
+                    glVertex3f(wx1, WATER_LEVEL, wz1);
+                    glVertex3f(wx2, WATER_LEVEL, wz1);
+                    glVertex3f(wx2, WATER_LEVEL, wz2);
+                    glVertex3f(wx1, WATER_LEVEL, wz2);
+                    glEnd();
+                }
+            }
+        }
+    }
+
+    private void buildGrassBatch() {
+        disposeGrassBatch();
+        VertexBatchBuilder builder = new VertexBatchBuilder();
+        int texture = 0;
+
+        for (Feature feature : features) {
+            if (feature instanceof Grass) {
+                Grass grass = (Grass) feature;
+                grass.appendToBatch(builder);
+                texture = grass.getTextureId();
+            }
+        }
+
+        int vertexCount = builder.getVertexCount();
+        if (vertexCount == 0) {
+            return;
+        }
+
+        int vboId = glGenBuffers();
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        glBufferData(GL_ARRAY_BUFFER, builder.toBuffer(), GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+        grassBatchVbo = vboId;
+        grassBatchVertexCount = vertexCount;
+        grassBatchTexture = texture;
+    }
+
+    private void renderGrassBatch() {
+        if (grassBatchVbo == -1 || grassBatchVertexCount == 0) {
+            return;
+        }
+
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glEnable(GL_ALPHA_TEST);
+        glAlphaFunc(GL_GREATER, 0.3f);
+        glBindTexture(GL_TEXTURE_2D, grassBatchTexture);
+        glBindBuffer(GL_ARRAY_BUFFER, grassBatchVbo);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glVertexPointer(3, GL_FLOAT, 5 * Float.BYTES, 0);
+        glTexCoordPointer(2, GL_FLOAT, 5 * Float.BYTES, 3 * Float.BYTES);
+        glDrawArrays(GL_QUADS, 0, grassBatchVertexCount);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_BLEND);
+    }
+
+    private void renderGrassBatchDepth() {
+        if (grassBatchVbo == -1 || grassBatchVertexCount == 0) {
+            return;
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, grassBatchVbo);
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(3, GL_FLOAT, 5 * Float.BYTES, 0);
+        glDrawArrays(GL_QUADS, 0, grassBatchVertexCount);
+        glDisableClientState(GL_VERTEX_ARRAY);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+    }
+
+    private void renderTerrainBuffers() {
+        if (terrainBatches.isEmpty()) {
+            return;
+        }
+
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glEnableClientState(GL_NORMAL_ARRAY);
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+
+        int strideBytes = STRIDE_FLOATS * Float.BYTES;
+        for (TerrainBatch batch : terrainBatches) {
+            glBindTexture(GL_TEXTURE_2D, batch.textureId);
+            glBindBuffer(GL_ARRAY_BUFFER, batch.vboId);
+            glVertexPointer(3, GL_FLOAT, strideBytes, 0);
+            glNormalPointer(GL_FLOAT, strideBytes, 3 * Float.BYTES);
+            glTexCoordPointer(2, GL_FLOAT, strideBytes, 6 * Float.BYTES);
+            glDrawArrays(GL_TRIANGLES, 0, batch.vertexCount);
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glDisableClientState(GL_TEXTURE_COORD_ARRAY);
+        glDisableClientState(GL_NORMAL_ARRAY);
+        glDisableClientState(GL_VERTEX_ARRAY);
+    }
+
+    public void renderDepth() {
+        if (terrainBatches.isEmpty()) {
+            return;
+        }
+
+        glEnableClientState(GL_VERTEX_ARRAY);
+        int strideBytes = STRIDE_FLOATS * Float.BYTES;
+
+        for (TerrainBatch batch : terrainBatches) {
+            glBindBuffer(GL_ARRAY_BUFFER, batch.vboId);
+            glVertexPointer(3, GL_FLOAT, strideBytes, 0);
+            glDrawArrays(GL_TRIANGLES, 0, batch.vertexCount);
+        }
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glDisableClientState(GL_VERTEX_ARRAY);
+
+        renderGrassBatchDepth();
+
+        for (Feature f : features) {
+            if (f instanceof Grass) {
+                continue;
+            }
+            if (f.y >= WATER_LEVEL) {
+                f.draw();
+            }
+        }
+    }
+
+    private void addTriangle(Map<Integer, FloatBuilder> builders, int x1, int z1, int x2, int z2, int x3, int z3,
+            float y1, float y2, float y3, float texScale) {
         float slope = (computeSlope(x1, z1) + computeSlope(x2, z2) + computeSlope(x3, z3)) / 3f;
         float height = Math.max(y1, Math.max(y2, y3));
         int tex = pickTexture(height, slope);
+
+        FloatBuilder builder = builders.computeIfAbsent(tex, key -> new FloatBuilder());
+        float[] normal = computeNormal(x1, z1, x2, z2, x3, z3);
 
         float wx1 = (cx * SIZE + x1) * scale;
         float wz1 = (cz * SIZE + z1) * scale;
@@ -251,16 +431,9 @@ public class Chunk {
         float wx3 = (cx * SIZE + x3) * scale;
         float wz3 = (cz * SIZE + z3) * scale;
 
-        glBindTexture(GL_TEXTURE_2D, tex);
-        glBegin(GL_TRIANGLES);
-        normal(x1, z1, x2, z2, x3, z3);
-        glTexCoord2f(x1 * texScale, z1 * texScale);
-        glVertex3f(wx1, y1, wz1);
-        glTexCoord2f(x2 * texScale, z2 * texScale);
-        glVertex3f(wx2, y2, wz2);
-        glTexCoord2f(x3 * texScale, z3 * texScale);
-        glVertex3f(wx3, y3, wz3);
-        glEnd();
+        builder.putVertex(wx1, y1, wz1, normal, x1 * texScale, z1 * texScale);
+        builder.putVertex(wx2, y2, wz2, normal, x2 * texScale, z2 * texScale);
+        builder.putVertex(wx3, y3, wz3, normal, x3 * texScale, z3 * texScale);
     }
 
     public List<Feature> getFeatures() {
@@ -276,6 +449,7 @@ public class Chunk {
             // Remove only non-lake features
             features.removeIf(f -> !(f instanceof Lake));
             featuresGenerated = false;
+            disposeGrassBatch();
 
             for (int x = 0; x < SIZE; x++) {
                 Arrays.fill(featureMask[x], false);
@@ -335,6 +509,7 @@ public class Chunk {
                 }
             }
         }
+        buildGrassBatch();
     }
 
     private float averageSurroundingSlope(int centerX, int centerZ, int radius) {
@@ -449,23 +624,9 @@ public class Chunk {
         for (Feature f : features) {
             f.dispose(); // let each feature release OpenGL textures/resources
         }
-    }
-
-    private void normal(int x1, int z1, int x2, int z2, int x3, int z3) {
-        float[] p1 = { (cx * SIZE + x1) * scale, heights[x1][z1], (cz * SIZE + z1) * scale };
-        float[] p2 = { (cx * SIZE + x2) * scale, heights[x2][z2], (cz * SIZE + z2) * scale };
-        float[] p3 = { (cx * SIZE + x3) * scale, heights[x3][z3], (cz * SIZE + z3) * scale };
-
-        float[] u = { p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2] };
-        float[] v = { p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2] };
-
-        float nx = u[1] * v[2] - u[2] * v[1];
-        float ny = u[2] * v[0] - u[0] * v[2];
-        float nz = u[0] * v[1] - u[1] * v[0];
-
-        float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
-        if (len != 0)
-            glNormal3f(nx / len, ny / len, nz / len);
+        disposeTerrainBuffers();
+        disposeWaterDisplayList();
+        disposeGrassBatch();
     }
 
     public OpenSimplexNoise getTerrainNoise() {
@@ -478,5 +639,92 @@ public class Chunk {
 
     public int getLOD() {
         return lod;
+    }
+
+    private void disposeTerrainBuffers() {
+        for (TerrainBatch batch : terrainBatches) {
+            glDeleteBuffers(batch.vboId);
+        }
+        terrainBatches.clear();
+    }
+
+    private void disposeWaterDisplayList() {
+        if (waterDisplayList != -1) {
+            glDeleteLists(waterDisplayList, 1);
+            waterDisplayList = -1;
+        }
+    }
+
+    private void disposeGrassBatch() {
+        if (grassBatchVbo != -1) {
+            glDeleteBuffers(grassBatchVbo);
+            grassBatchVbo = -1;
+        }
+        grassBatchVertexCount = 0;
+        grassBatchTexture = 0;
+    }
+
+    private float[] computeNormal(int x1, int z1, int x2, int z2, int x3, int z3) {
+        float[] p1 = { (cx * SIZE + x1) * scale, heights[x1][z1], (cz * SIZE + z1) * scale };
+        float[] p2 = { (cx * SIZE + x2) * scale, heights[x2][z2], (cz * SIZE + z2) * scale };
+        float[] p3 = { (cx * SIZE + x3) * scale, heights[x3][z3], (cz * SIZE + z3) * scale };
+
+        float[] u = { p2[0] - p1[0], p2[1] - p1[1], p2[2] - p1[2] };
+        float[] v = { p3[0] - p1[0], p3[1] - p1[1], p3[2] - p1[2] };
+
+        float nx = u[1] * v[2] - u[2] * v[1];
+        float ny = u[2] * v[0] - u[0] * v[2];
+        float nz = u[0] * v[1] - u[1] * v[0];
+
+        float len = (float) Math.sqrt(nx * nx + ny * ny + nz * nz);
+        if (len == 0f) {
+            return new float[] { 0f, 1f, 0f };
+        }
+        return new float[] { nx / len, ny / len, nz / len };
+    }
+
+    private static final int STRIDE_FLOATS = 8;
+
+    private static final class TerrainBatch {
+        private final int textureId;
+        private final int vboId;
+        private final int vertexCount;
+
+        private TerrainBatch(int textureId, int vboId, int vertexCount) {
+            this.textureId = textureId;
+            this.vboId = vboId;
+            this.vertexCount = vertexCount;
+        }
+    }
+
+    private static final class FloatBuilder {
+        private float[] data = new float[8192];
+        private int size = 0;
+
+        private void putVertex(float x, float y, float z, float[] normal, float u, float v) {
+            ensureCapacity(STRIDE_FLOATS);
+            data[size++] = x;
+            data[size++] = y;
+            data[size++] = z;
+            data[size++] = normal[0];
+            data[size++] = normal[1];
+            data[size++] = normal[2];
+            data[size++] = u;
+            data[size++] = v;
+        }
+
+        private void ensureCapacity(int floats) {
+            int needed = size + floats;
+            if (needed > data.length) {
+                int newSize = Math.max(needed, data.length * 2);
+                data = Arrays.copyOf(data, newSize);
+            }
+        }
+
+        private java.nio.FloatBuffer toBuffer() {
+            java.nio.FloatBuffer buffer = org.lwjgl.BufferUtils.createFloatBuffer(size);
+            buffer.put(data, 0, size).flip();
+            return buffer;
+        }
     }
 }

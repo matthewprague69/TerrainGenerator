@@ -1,4 +1,5 @@
 package objects;
+import renderers.ShadowRenderer;
 import util.FeatureUtil;
 
 import static org.lwjgl.opengl.GL11.*;

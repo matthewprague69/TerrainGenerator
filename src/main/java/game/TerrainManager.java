@@ -203,6 +203,12 @@ public class TerrainManager {
         }
     }
 
+    public void drawDepth() {
+        for (Chunk c : chunks.values()) {
+            c.renderDepth();
+        }
+    }
+
     private void enableFogDynamic() {
         glEnable(GL_FOG);
         glFogi(GL_FOG_MODE, GL_LINEAR);
