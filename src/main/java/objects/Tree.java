@@ -19,7 +19,9 @@ public class Tree extends Feature {
 
     private static final Map<TreeType, Branch> spruceTemplateCache = new HashMap<>();
     private static final Map<TreeType, Integer> spruceDisplayLists = new HashMap<>();
+    private static final Map<TreeType, Integer> spruceTrunkDisplayLists = new HashMap<>();
     private int displayList = -1; // Per-tree list (for normal trees)
+    private int trunkDisplayList = -1;
 
     public Tree(float x, float y, float z, TreeType type, boolean hasLeaves, long globalSeed) {
         super(x, y, z);
@@ -38,9 +40,11 @@ public class Tree extends Feature {
             Branch template = getOrCreateSpruceTemplate(type, height);
             this.root = cloneBranch(template);
             buildSpruceDisplayListIfNeeded(type);
+            buildSpruceTrunkDisplayListIfNeeded(type);
         } else {
             this.root = generateTrunk(height, type.baseThickness);
-            buildDisplayList(); // For normal trees
+            buildDisplayList(true); // For normal trees
+            buildDisplayList(false);
         }
     }
 
@@ -52,6 +56,9 @@ public class Tree extends Feature {
     public void dispose() {
         if (displayList != -1) {
             glDeleteLists(displayList, 1);
+        }
+        if (trunkDisplayList != -1) {
+            glDeleteLists(trunkDisplayList, 1);
         }
         // Note: Spruce display lists are static/shared, we don't delete them here
     }
@@ -173,17 +180,32 @@ public class Tree extends Feature {
         if (!spruceDisplayLists.containsKey(type)) {
             int list = glGenLists(1);
             glNewList(list, GL_COMPILE);
-            drawBranchRecursive(root, 0);
+            drawBranchRecursive(root, 0, true);
             glEndList();
             spruceDisplayLists.put(type, list);
         }
     }
 
-    private void buildDisplayList() {
-        displayList = glGenLists(1);
-        glNewList(displayList, GL_COMPILE);
-        drawBranchRecursive(root, 0);
+    private void buildSpruceTrunkDisplayListIfNeeded(TreeType type) {
+        if (!spruceTrunkDisplayLists.containsKey(type)) {
+            int list = glGenLists(1);
+            glNewList(list, GL_COMPILE);
+            drawBranchRecursive(root, 0, false);
+            glEndList();
+            spruceTrunkDisplayLists.put(type, list);
+        }
+    }
+
+    private void buildDisplayList(boolean drawLeaves) {
+        int list = glGenLists(1);
+        glNewList(list, GL_COMPILE);
+        drawBranchRecursive(root, 0, drawLeaves);
         glEndList();
+        if (drawLeaves) {
+            displayList = list;
+        } else {
+            trunkDisplayList = list;
+        }
     }
 
     private Branch generateTrunk(float totalHeight, float thickness) {
@@ -284,6 +306,36 @@ public class Tree extends Feature {
     }
 
     @Override
+    public void drawSimplified() {
+        glPushMatrix();
+        glTranslatef(x, y, z);
+
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(true);
+        glEnable(GL_ALPHA_TEST);
+        glAlphaFunc(GL_GREATER, 0.5f);
+        glColor4f(1f, 1f, 1f, 1f);
+
+        if (type.renderStyle == TreeRenderStyle.SPRUCE) {
+            glCallList(spruceTrunkDisplayLists.get(type));
+        } else {
+            glCallList(trunkDisplayList);
+        }
+
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
+        glPopMatrix();
+    }
+
+    @Override
+    public void drawDepth() {
+        draw();
+    }
+
+    @Override
     protected float getShadowRadius() {
         return Math.max(type.leafSize * 0.7f, type.baseThickness * 1.8f);
     }
@@ -298,7 +350,7 @@ public class Tree extends Feature {
         return 0.5f;
     }
 
-    private void drawBranchRecursive(Branch branch, int depth) {
+    private void drawBranchRecursive(Branch branch, int depth, boolean drawLeaves) {
         glPushMatrix();
 
         if (branch.applyOutwardTilt) {
@@ -316,14 +368,16 @@ public class Tree extends Feature {
         }
 
         if (branch.children.isEmpty()) {
-            if (type.renderStyle == TreeRenderStyle.SPRUCE) {
-                drawSpruceLeafRing(type.leafSize * 0.5f);
-            } else if (hasLeaves && depth >= 3) {
-                drawCrownLeafPlanes();
+            if (drawLeaves) {
+                if (type.renderStyle == TreeRenderStyle.SPRUCE) {
+                    drawSpruceLeafRing(type.leafSize * 0.5f);
+                } else if (hasLeaves && depth >= 3) {
+                    drawCrownLeafPlanes();
+                }
             }
         } else {
             for (Branch child : branch.children) {
-                drawBranchRecursive(child, depth + 1);
+                drawBranchRecursive(child, depth + 1, drawLeaves);
             }
         }
 

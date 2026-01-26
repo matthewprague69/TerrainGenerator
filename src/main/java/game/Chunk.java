@@ -2,6 +2,7 @@ package game;
 import generators.LakeGenerator;
 import objects.BatchableFeature;
 import objects.Feature;
+import objects.Flower;
 import objects.Grass;
 import objects.Lake;
 import spawners.FeatureSpawner;
@@ -179,22 +180,32 @@ public class Chunk {
         }
     }
 
-    public void drawTerrainAndFeatures() {
+    public void drawTerrainAndFeatures(int chunkDistance, int featureDetailDistance, int grassDetailDistance) {
         glEnable(GL_TEXTURE_2D);
         glColor3f(1f, 1f, 1f);
 
         renderTerrainBuffers();
-        renderGrassBatch();
+        if (chunkDistance <= grassDetailDistance) {
+            renderGrassBatch();
+        }
 
         glDisable(GL_TEXTURE_2D);
 
+        boolean simplified = chunkDistance > featureDetailDistance;
         // Draw features if they are above water
         for (Feature f : features) {
             if (f instanceof Grass) {
                 continue;
             }
+            if (simplified && f instanceof Flower) {
+                continue;
+            }
             if (f.y >= WATER_LEVEL) {
-                f.draw();
+                if (simplified) {
+                    f.drawSimplified();
+                } else {
+                    f.draw();
+                }
             }
         }
     }
@@ -366,7 +377,7 @@ public class Chunk {
         glDisableClientState(GL_VERTEX_ARRAY);
     }
 
-    public void renderDepth() {
+    public void renderDepth(int chunkDistance, int featureDetailDistance, int grassDetailDistance) {
         if (terrainBatches.isEmpty()) {
             return;
         }
@@ -383,14 +394,24 @@ public class Chunk {
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glDisableClientState(GL_VERTEX_ARRAY);
 
-        renderGrassBatchDepth();
+        if (chunkDistance <= grassDetailDistance) {
+            renderGrassBatchDepth();
+        }
 
+        boolean simplified = chunkDistance > featureDetailDistance;
         for (Feature f : features) {
             if (f instanceof Grass) {
                 continue;
             }
+            if (simplified && f instanceof Flower) {
+                continue;
+            }
             if (f.y >= WATER_LEVEL) {
-                f.draw();
+                if (simplified) {
+                    f.drawSimplified();
+                } else {
+                    f.drawDepth();
+                }
             }
         }
     }

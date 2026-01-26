@@ -89,7 +89,7 @@ public class ShadowRenderer {
         glEnable(GL_POLYGON_OFFSET_FILL);
         glPolygonOffset(1.5f, 4.0f);
 
-        terrain.drawDepth();
+        terrain.drawDepth(centerX, centerZ);
 
         glDisable(GL_POLYGON_OFFSET_FILL);
         glColorMask(true, true, true, true);

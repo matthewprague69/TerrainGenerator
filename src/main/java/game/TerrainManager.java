@@ -189,23 +189,37 @@ public class TerrainManager {
         return c != null ? c.getHeight(wx / scale, wz / scale) : 0f;
     }
 
-    public void draw() {
+    public void drawTerrainAndFeatures(float wx, float wz) {
         enableFogDynamic();
 
+        int pcx = (int) Math.floor(wx / (Chunk.SIZE * scale));
+        int pcz = (int) Math.floor(wz / (Chunk.SIZE * scale));
+        int featureDetailDistance = Math.max(1, featureRenderDist - 1);
+        int grassDetailDistance = Math.max(1, featureRenderDist - 2);
+
         for (Chunk c : chunks.values()) {
-            c.drawTerrainAndFeatures();
+            int dist = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+            c.drawTerrainAndFeatures(dist, featureDetailDistance, grassDetailDistance);
         }
 
         disableFog();
+    }
 
+    public void drawWater() {
         for (Chunk c : chunks.values()) {
             c.drawWater();
         }
     }
 
-    public void drawDepth() {
+    public void drawDepth(float wx, float wz) {
+        int pcx = (int) Math.floor(wx / (Chunk.SIZE * scale));
+        int pcz = (int) Math.floor(wz / (Chunk.SIZE * scale));
+        int featureDetailDistance = Math.max(1, featureRenderDist - 1);
+        int grassDetailDistance = Math.max(1, featureRenderDist - 2);
+
         for (Chunk c : chunks.values()) {
-            c.renderDepth();
+            int dist = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+            c.renderDepth(dist, featureDetailDistance, grassDetailDistance);
         }
     }
 

@@ -19,6 +19,14 @@ public abstract class Feature {
 
     public abstract void draw();
 
+    public void drawSimplified() {
+        draw();
+    }
+
+    public void drawDepth() {
+        draw();
+    }
+
     public void drawShadow(TerrainManager terrain, float[] lightDir, float strength) {
         float radius = getShadowRadius();
         float height = getShadowHeight();

@@ -206,8 +206,9 @@ public class Main {
             float[] viewInverse = util.MatrixUtils.invert(viewMatrix);
 
             shadowRenderer.beginScenePass(lightMatrix, lightDir, lightStrength, viewMatrix, viewInverse);
-            terrain.draw();
+            terrain.drawTerrainAndFeatures(player.getX(), player.getZ());
             shadowRenderer.endScenePass();
+            terrain.drawWater();
 
             sky.renderSunAndMoon(player.getX(), player.getY(), player.getZ());
             drawInfoOverlay();
