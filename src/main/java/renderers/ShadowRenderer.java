@@ -138,11 +138,11 @@ public class ShadowRenderer {
     }
 
     private float[] buildLightProjectionMatrix() {
-        return MatrixUtils.ortho(-120f, 120f, -120f, 120f, 0.1f, 260f);
+        return MatrixUtils.ortho(-180f, 180f, -180f, 180f, 0.1f, 340f);
     }
 
     private float[] buildLightViewMatrix(float[] lightDir, float centerX, float centerY, float centerZ) {
-        float distance = 140f;
+        float distance = 200f;
         float eyeX = centerX - lightDir[0] * distance;
         float eyeY = centerY - lightDir[1] * distance + 80f;
         float eyeZ = centerZ - lightDir[2] * distance;

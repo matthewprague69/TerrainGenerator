@@ -53,7 +53,8 @@ public class Main {
         glfwSetFramebufferSizeCallback(window, (win, w, h) -> glViewport(0, 0, w, h));
 
         sky = new SkyRenderer(); // create sky first
-        terrain = new TerrainManager(1234L, 1f, 6, 3, sky); // pass sky into terrain manager
+        terrain = new TerrainManager(1234L, 1f, 8, 4, sky); // pass sky into terrain manager
+        terrain.setShadowRenderDistance(10);
 
         float half = Chunk.SIZE * terrain.getScale() * 0.5f;
         player = new Player(half, half, terrain);

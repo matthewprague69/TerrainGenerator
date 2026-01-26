@@ -21,6 +21,7 @@ public class TerrainManager {
     private final float scale;
     private int renderDist;
     private int featureRenderDist;
+    private int shadowRenderDist;
     private final long seed;
 
     private final Map<String, Integer> textureMap = new HashMap<>();
@@ -39,6 +40,7 @@ public class TerrainManager {
         this.scale = scale;
         this.renderDist = renderDist;
         this.featureRenderDist = featureRenderDist;
+        this.shadowRenderDist = Math.max(renderDist + 2, featureRenderDist + 2);
         this.regionGenerator = new BiomeRegionGenerator(seed);
 
 
@@ -219,6 +221,9 @@ public class TerrainManager {
 
         for (Chunk c : chunks.values()) {
             int dist = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+            if (dist > shadowRenderDist) {
+                continue;
+            }
             c.renderDepth(dist, featureDetailDistance, grassDetailDistance);
         }
     }
@@ -318,6 +323,14 @@ public class TerrainManager {
 
     public int getRenderDistance() {
         return renderDist;
+    }
+
+    public void setShadowRenderDistance(int r) {
+        shadowRenderDist = Math.max(1, r);
+    }
+
+    public int getShadowRenderDistance() {
+        return shadowRenderDist;
     }
 
     public void setFeatureRenderDistance(int r) {
