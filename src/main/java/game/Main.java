@@ -9,13 +9,18 @@ import renderers.ShadowRenderer;
 import renderers.SkyRenderer;
 import renderers.UIRenderer;
 import util.TextureLoader;
+    private TerrainManager terrain;
+    private Player player;
+    private SkyRenderer sky;
+    private ShadowRenderer shadowRenderer;
 
-import java.nio.*;
+        sky = new SkyRenderer(); // create sky first
+        terrain = new TerrainManager(1234L, 1f, 8, 4, sky); // pass sky into terrain manager
+        terrain.setShadowRenderDistance(10);
+        glfwShowWindow(window);
 
-import static org.lwjgl.glfw.Callbacks.*;
-import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.system.MemoryUtil.*;
+        shadowRenderer = new ShadowRenderer(2048);
+    }
 
 public class Main {
     private long window;
@@ -103,38 +108,63 @@ public class Main {
             int centerX = (vidmode.width() - windowedWidth) / 2;
             int centerY = (vidmode.height() - windowedHeight) / 2;
 
-            glfwSetWindowMonitor(window, NULL,
-                    centerX, centerY,
-                    windowedWidth, windowedHeight,
-                    vidmode.refreshRate());
-        }
-    }
-
-    private void drawInfoOverlay() {
-        UIRenderer.begin2D(windowedWidth, windowedHeight);
-
-        glColor3f(1, 1, 1);
-        PixelTextRenderer.drawText("ZVETSENI RENDER DISTANCE - T", 10, 1190, 1.0f);
-        PixelTextRenderer.drawText("ZVETSENI GENERACE OBJEKTU DISTANCE - Z", 10, 1170, 1.0f);
-        PixelTextRenderer.drawText("ZMENSENI RENDER DISTANCE - SHIFT T", 10, 1180, 1.0f);
-        PixelTextRenderer.drawText("ZMENSENI GENERACE OBJEKTU DISTANCE -  SHIFT Z", 10, 1160, 1.0f);
-        PixelTextRenderer.drawText("TIME SPEED - R", 10, 1150, 1.0f);
-
-        PixelTextRenderer.drawText("Generace Terenu", 10, 40, 1.0f);
-        PixelTextRenderer.drawText("Matous Prazak UHK PGRF2 2025 ", 10, 30, 1.0f);
-        PixelTextRenderer.drawText("LAST UPDATED: 25.04 21:03", 10, 20, 1.0f);
-
-        UIRenderer.end2D();
-    }
-
-    private void loop() {
-        glEnable(GL_DEPTH_TEST);
-
-        glEnable(GL_TEXTURE_2D);
-
         double lastTime = glfwGetTime();
         boolean prevT = false;
         boolean prevZ = false;
+        boolean prevP = false;
+
+            float[] lightDir = sky.getShadowDirection();
+            float lightStrength = sky.getSkyBrightness();
+            float[] lightMatrix = shadowRenderer.renderShadowMap(
+                    terrain,
+                    lightDir,
+                    player.getX(),
+                    player.getY(),
+                    player.getZ(),
+                    windowedWidth,
+                    windowedHeight
+            );
+
+            setupProjection();
+
+            sky.renderSkybox();
+            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+            glMatrixMode(GL_MODELVIEW);
+            glLoadIdentity();
+
+            // Set light direction in fixed world space
+            player.applyView(); // First apply camera
+
+            sky.setLightDirectionFixed(); // Then set light in world space
+
+            float[] viewMatrix = readModelViewMatrix();
+            float[] viewInverse = util.MatrixUtils.invert(viewMatrix);
+
+            shadowRenderer.beginScenePass(lightMatrix, lightDir, lightStrength, viewMatrix, viewInverse);
+            terrain.drawTerrainAndFeatures(player.getX(), player.getZ());
+            shadowRenderer.endScenePass();
+            terrain.drawWater();
+
+            sky.renderSunAndMoon(player.getX(), player.getY(), player.getZ());
+            drawInfoOverlay();
+
+    public void run() {
+        init();
+        loop();
+        TextureLoader.disposeAll();
+        glfwTerminate();
+        glfwSetErrorCallback(null).free();
+    }
+
+    private float[] readModelViewMatrix() {
+        FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
+        glGetFloatv(GL_MODELVIEW_MATRIX, buffer);
+        float[] matrix = new float[16];
+        buffer.get(matrix);
+        return matrix;
+    }
+}
         boolean prevP = false;
 
         while (!glfwWindowShouldClose(window)) {

@@ -22,15 +22,17 @@ public class TerrainManager {
     private int renderDist;
     private int featureRenderDist;
     private int shadowRenderDist;
-    private final long seed;
-
-    private final Map<String, Integer> textureMap = new HashMap<>();
-    private final int snowTex;
-    private final int waterBottomTex;
-    private final int waterBottomAbsTex;
-
     public TerrainManager(long seed, float scale, int renderDist, SkyRenderer skyRenderer) {
         this(seed, scale, renderDist, renderDist - 1,  skyRenderer);
+    }
+
+    public TerrainManager(long seed, float scale, int renderDist, int featureRenderDist,SkyRenderer skyRenderer) {
+        this.seed = seed;
+        this.scale = scale;
+        this.renderDist = renderDist;
+        this.featureRenderDist = featureRenderDist;
+        this.shadowRenderDist = Math.max(renderDist + 2, featureRenderDist + 2);
+        this.regionGenerator = new BiomeRegionGenerator(seed);
     }
 
     public TerrainManager(long seed, float scale, int renderDist, int featureRenderDist,SkyRenderer skyRenderer) {
@@ -93,33 +95,6 @@ public class TerrainManager {
             for (int dz = -chunkRadius; dz <= chunkRadius; dz++) {
                 Chunk chunk = getChunk(cx + dx, cz + dz);
                 if (chunk != null) {
-                    results.addAll(chunk.getFeatures());
-                }
-            }
-        }
-
-        return results;
-    }
-
-    public void update(float wx, float wz, Frustum frustum) {
-
-        int pcx = (int) Math.floor(wx / (Chunk.SIZE * scale));
-        int pcz = (int) Math.floor(wz / (Chunk.SIZE * scale));
-        Set<Long> needed = new HashSet<>();
-
-        for (int dx = -renderDist; dx <= renderDist; dx++) {
-            for (int dz = -renderDist; dz <= renderDist; dz++) {
-                int cx = pcx + dx, cz = pcz + dz;
-                long k = key(cx, cz);
-
-                Chunk existing = chunks.get(k);
-
-                float chunkMinX = cx * Chunk.SIZE * scale;
-                float chunkMinZ = cz * Chunk.SIZE * scale;
-                float chunkMaxX = (cx + 1) * Chunk.SIZE * scale;
-                float chunkMaxZ = (cz + 1) * Chunk.SIZE * scale;
-
-// Use real Y bounds if chunk exists
                 float chunkMinY = -20f;
                 float chunkMaxY = 100f; // fallback default
 
@@ -130,8 +105,51 @@ public class TerrainManager {
                         chunkMaxY = box.maxY;
                     }
                 }
+                int targetLOD = 0;
 
-// Now frustum cull properly
+                if (existing == null || targetLOD != existing.getLOD()) {
+                    Biome b = pickBiome(cx, cz);
+                    Chunk upgraded = new Chunk(cx, cz, terrainNoise, scale, b, this, false, targetLOD);
+                    if (existing != null)
+                        existing.dispose();
+                    chunks.put(k, upgraded);
+
+    public void drawTerrainAndFeatures(float wx, float wz) {
+        enableFogDynamic();
+
+        int pcx = (int) Math.floor(wx / (Chunk.SIZE * scale));
+        int pcz = (int) Math.floor(wz / (Chunk.SIZE * scale));
+        int featureDetailDistance = Math.max(1, featureRenderDist - 1);
+        int grassDetailDistance = Math.max(1, featureRenderDist - 2);
+
+        for (Chunk c : chunks.values()) {
+            int dist = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+            c.drawTerrainAndFeatures(dist, featureDetailDistance, grassDetailDistance);
+        }
+
+        disableFog();
+    }
+
+    public void drawWater() {
+        for (Chunk c : chunks.values()) {
+            c.drawWater();
+        }
+    }
+
+    public void drawDepth(float wx, float wz) {
+        int pcx = (int) Math.floor(wx / (Chunk.SIZE * scale));
+        int pcz = (int) Math.floor(wz / (Chunk.SIZE * scale));
+        int featureDetailDistance = Math.max(1, featureRenderDist - 1);
+        int grassDetailDistance = Math.max(1, featureRenderDist - 2);
+
+        for (Chunk c : chunks.values()) {
+            int dist = Math.max(Math.abs(c.cx - pcx), Math.abs(c.cz - pcz));
+            if (dist > shadowRenderDist) {
+                continue;
+            }
+            c.renderDepth(dist, featureDetailDistance, grassDetailDistance);
+        }
+    }
                 if (!frustum.isBoxVisible(chunkMinX, chunkMinY, chunkMinZ, chunkMaxX, chunkMaxY, chunkMaxZ))
                     continue;
 
@@ -268,26 +286,42 @@ public class TerrainManager {
 
 
 
-    private void disableFog() {
-        glDisable(GL_FOG);
+    public void setRenderDistance(int r) {
+        System.out.println("Render distance set to " + r);
+        renderDist = Math.max(1, r);
     }
 
-    public float getScale() {
-        return scale;
+    public int getRenderDistance() {
+        return renderDist;
     }
 
-    public Map<Biome, Float> getBiomeWeights(double wx, double wz) {
-        double nx = wx * 0.001;
-        double nz = wz * 0.001;
-        double v = (biomeNoise.eval(nx, nz) + 1.0) / 2.0;
+    public void setShadowRenderDistance(int r) {
+        shadowRenderDist = Math.max(1, r);
+    }
 
-        Map<Biome, Float> weights = new EnumMap<>(Biome.class);
-        float total = 0f;
+    public int getShadowRenderDistance() {
+        return shadowRenderDist;
+    }
+    public int getSnowTexture() {
+        return snowTex;
+    }
 
-        for (Biome biome : Biome.values()) {
-            float distance = (float) Math.abs(v - biome.center);
-            float influence = 1f - (distance / biome.blendRadius);
-            influence = Math.max(0f, influence);
+    public Biome getBiome(int wcx, int wcz) {
+        return pickBiome(wcx, wcz);
+    }
+
+    public long getSeed() {
+        return seed;
+    }
+
+    public float[] getShadowDirection() {
+        return skyRenderer.getShadowDirection();
+    }
+
+    public float getShadowStrength() {
+        return skyRenderer.getShadowStrength();
+    }
+}
             weights.put(biome, influence);
             total += influence;
         }

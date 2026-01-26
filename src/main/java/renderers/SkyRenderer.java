@@ -184,6 +184,19 @@ public class SkyRenderer {
     }
 
     private void drawSphere(float cx, float cy, float cz, float r) {
+        float[] sunDir = getSunDirection();
+        float brightness = getSkyBrightness();
+        if (brightness > 0f) {
+            return new float[] { -sunDir[0], -sunDir[1], -sunDir[2] };
+        }
+        return new float[] { sunDir[0], sunDir[1], sunDir[2] };
+    }
+
+    public float getShadowStrength() {
+        return Math.min(0.65f, getSkyBrightness());
+    }
+
+    private void drawSphere(float cx, float cy, float cz, float r) {
         int lats = 16;
         int longs = 16;
 

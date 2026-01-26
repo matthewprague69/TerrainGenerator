@@ -4,51 +4,87 @@ import util.FeatureUtil;
 import util.TextureLoader;
 import org.lwjgl.BufferUtils;
 import util.VertexBatchBuilder;
-
-import static org.lwjgl.opengl.GL11.*;
-import static org.lwjgl.opengl.GL15.*;
-
-import java.nio.FloatBuffer;
-import java.util.Random;
-
 public class Grass extends Feature implements BatchableFeature {
-    private static final int BLADE_COUNT = 32;
 
-    private static final float BLADE_HALF_BASE = 0.04f;
-    private static final float BLADE_HALF_TOP = 0.015f;
-    private static final float BLADE_BASE_HEIGHT = 1.2f;
-    private static final float BLADE_HEIGHT_VARIATION = 0.6f;
-    private static final float SPREAD = 1f; // Controls how wide blades spread out
-
-    private final int textureId; // <--- INSTANCE, not static!
-    private final Random rand;
-    private final int vboId;
     private final boolean textured;
     private final float r, g, b;
     private final float[] verticesData;
 
-    private static final FloatBuffer verticesBuffer =
-            BufferUtils.createFloatBuffer(BLADE_COUNT * 8 * 5);
-
-    public Grass(float x, float y, float z, String textureName, long globalSeed) {
-        super(x, y, z);
-
-        long seed = FeatureUtil.hashSeed(x, y, z, globalSeed);
-        this.rand = new Random(seed);
-        this.textured = true;
-        this.r = 1f;
-        this.g = 1f;
-        this.b = 1f;
-
-        this.textureId = TextureLoader.getOrLoad(textureName); // always per-instance load
+        this.verticesData = new float[BLADE_COUNT * 8 * 5];
+        generateGrassVertices();
+        vboId = uploadToGPU();
 
         this.verticesData = new float[BLADE_COUNT * 8 * 5];
         generateGrassVertices();
         vboId = uploadToGPU();
+
+    private void generateGrassVertices() {
+        verticesBuffer.clear();
+
+        int index = 0;
+        for (int i = 0; i < BLADE_COUNT; i++) {
+                index = putRotated(offsetX, offsetZ, -BLADE_HALF_BASE, 0f, cos, sin, 0f, 0f, index);
+                index = putRotated(offsetX, offsetZ,  BLADE_HALF_BASE, 0f, cos, sin, 1f, 0f, index);
+                index = putRotated(offsetX, offsetZ,  BLADE_HALF_TOP + lean, height, cos, sin, 1f, 1f, index);
+                index = putRotated(offsetX, offsetZ, -BLADE_HALF_TOP + lean, height, cos, sin, 0f, 1f, index);
+            }
+        }
+
+        verticesBuffer.flip();
     }
 
-    public Grass(float x, float y, float z, float r, float g, float b, long globalSeed) {
-        super(x, y, z);
+    private int putRotated(float offX, float offZ,
+                            float localX, float localY,
+                            float cos, float sin,
+                            float u, float v,
+                            int index) {
+        float x = offX + localX * cos;
+        float z = offZ + localX * sin;
+        verticesBuffer.put(x).put(localY).put(z).put(u).put(v);
+        verticesData[index++] = x;
+        verticesData[index++] = localY;
+        verticesData[index++] = z;
+        verticesData[index++] = u;
+        verticesData[index++] = v;
+        return index;
+    }
+    public void draw() {
+        glPushMatrix();
+        glTranslatef(x, y, z);
+
+
+        glPopMatrix();
+    }
+
+    @Override
+    protected float getShadowRadius() {
+        return 0.5f;
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return BLADE_BASE_HEIGHT + BLADE_HEIGHT_VARIATION;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.2f;
+    }
+
+    @Override
+    public void dispose() {
+        glDeleteBuffers(vboId);
+    }
+
+    public void appendToBatch(VertexBatchBuilder builder) {
+        builder.append(verticesData, x, y, z);
+    }
+
+    @Override
+    public int getBatchTextureId() {
+        return textureId;
+    }
+}
 
         long seed = FeatureUtil.hashSeed(x, y, z, globalSeed);
         this.rand = new Random(seed);

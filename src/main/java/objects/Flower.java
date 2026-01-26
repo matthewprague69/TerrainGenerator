@@ -1,6 +1,7 @@
 package objects;
 import renderers.ShadowRenderer;
 import util.FeatureUtil;
+import util.FeatureUtil;
 
 import static org.lwjgl.opengl.GL11.*;
 import java.util.Random;
@@ -88,18 +89,35 @@ public class Flower extends Feature {
             for (int j = 0; j <= 8; j++) {
                 double θ = Math.PI * j / 8;
                 float px = (float)Math.sin(θ) * petalWidth  * petalScales[i];
-                float py = 0.05f         * (float)Math.cos(θ);
-                float pz = petalLength   * petalScales[i];
-                glVertex3f(px, py, pz);
-            }
-            glEnd();
+    public void draw() {
+        glPushMatrix();
+        glTranslatef(x, y, z);
+        ShadowRenderer.setUseTexture(false);
+        glCallList(displayList);
+        ShadowRenderer.setUseTexture(true);
+        glPopMatrix();
+    }
 
-            glPopMatrix();
+    @Override
+    protected float getShadowRadius() {
+        return 0.25f;
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return type.height;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.25f;
+    }
+
+    @Override
+    public void dispose() {
+        if (displayList != -1) {
+            glDeleteLists(displayList, 1);
         }
-
-        // --- Center Bud ---
-        glColor3f(1.0f, 0.9f, 0.1f);
-        float budSize = 0.035f;
         glBegin(GL_TRIANGLE_FAN);
         glVertex3f(0, 0.02f, 0);
         for (int i = 0; i <= 12; i++) {

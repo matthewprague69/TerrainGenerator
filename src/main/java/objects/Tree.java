@@ -16,21 +16,11 @@ public class Tree extends Feature {
     private final TreeType type;
     private final boolean hasLeaves;
     private final float height;
-
     private static final Map<TreeType, Branch> spruceTemplateCache = new HashMap<>();
     private static final Map<TreeType, Integer> spruceDisplayLists = new HashMap<>();
     private static final Map<TreeType, Integer> spruceTrunkDisplayLists = new HashMap<>();
     private int displayList = -1; // Per-tree list (for normal trees)
     private int trunkDisplayList = -1;
-
-    public Tree(float x, float y, float z, TreeType type, boolean hasLeaves, long globalSeed) {
-        super(x, y, z);
-        this.type = type;
-        this.hasLeaves = hasLeaves;
-
-        long seed = FeatureUtil.hashSeed(x, y, z, globalSeed);
-        this.rand = new Random(seed);
-
         this.barkTex = TextureLoader.getOrLoad(type.trunkTex);
         this.leafTex = TextureLoader.getOrLoad(type.leafTex);
 
@@ -39,6 +29,24 @@ public class Tree extends Feature {
         if (type.renderStyle == TreeRenderStyle.SPRUCE) {
             Branch template = getOrCreateSpruceTemplate(type, height);
             this.root = cloneBranch(template);
+            buildSpruceDisplayListIfNeeded(type);
+            buildSpruceTrunkDisplayListIfNeeded(type);
+        } else {
+            this.root = generateTrunk(height, type.baseThickness);
+            buildDisplayList(true); // For normal trees
+            buildDisplayList(false);
+        }
+    }
+    @Override
+    public void dispose() {
+        if (displayList != -1) {
+            glDeleteLists(displayList, 1);
+        }
+        if (trunkDisplayList != -1) {
+            glDeleteLists(trunkDisplayList, 1);
+        }
+        // Note: Spruce display lists are static/shared, we don't delete them here
+    }
             buildSpruceDisplayListIfNeeded(type);
             buildSpruceTrunkDisplayListIfNeeded(type);
         } else {
@@ -143,22 +151,37 @@ public class Tree extends Feature {
         int layers = 3;
         for (int i = 0; i < layers; i++) {
             Branch ring = new Branch();
-            float ringRadius = size * (1f - i * 0.4f);
-            int planes = 6;
-
-            for (int j = 0; j < planes; j++) {
-                Branch leaf = new Branch();
-                leaf.length = 0f;
-                leaf.thickness = 0f;
-                leaf.rotX = 0f;
-                leaf.rotZ = (360f / planes) * j;
-                ring.children.add(leaf);
-            }
-            cluster.children.add(ring);
+    private void buildSpruceDisplayListIfNeeded(TreeType type) {
+        if (!spruceDisplayLists.containsKey(type)) {
+            int list = glGenLists(1);
+            glNewList(list, GL_COMPILE);
+            drawBranchRecursive(root, 0, true);
+            glEndList();
+            spruceDisplayLists.put(type, list);
         }
+    }
 
-        Branch top = new Branch();
-        cluster.children.add(top);
+    private void buildSpruceTrunkDisplayListIfNeeded(TreeType type) {
+        if (!spruceTrunkDisplayLists.containsKey(type)) {
+            int list = glGenLists(1);
+            glNewList(list, GL_COMPILE);
+            drawBranchRecursive(root, 0, false);
+            glEndList();
+            spruceTrunkDisplayLists.put(type, list);
+        }
+    }
+
+    private void buildDisplayList(boolean drawLeaves) {
+        int list = glGenLists(1);
+        glNewList(list, GL_COMPILE);
+        drawBranchRecursive(root, 0, drawLeaves);
+        glEndList();
+        if (drawLeaves) {
+            displayList = list;
+        } else {
+            trunkDisplayList = list;
+        }
+    }
 
         return cluster;
     }
@@ -232,34 +255,81 @@ public class Tree extends Feature {
         Branch root = new Branch();
         root.length = segmentHeight;
         root.thickness = thickness;
-        root.rotX = baseTiltX;
-        root.rotZ = baseTiltZ;
-
-        Branch current = root;
-        for (int i = 1; i < type.trunkSegments; i++) {
-            Branch next = new Branch();
-            next.length = segmentHeight;
-            float taper = 1f - (i / (float) type.trunkSegments) * 0.4f;
-            next.thickness = thickness * taper;
-            next.rotX = baseTiltX;
-            next.rotZ = baseTiltZ;
-
-            current.children.add(next);
-            current = next;
+    @Override
+    public void draw() {
+        glPushMatrix();
+        glTranslatef(x, y, z);
+        if (type.renderStyle == TreeRenderStyle.SPRUCE) {
+            glCallList(spruceDisplayLists.get(type));
+        } else {
+            glCallList(displayList);
         }
-
-        float lastSegmentLength = current.length;
-        int branchCount = type.minBranchCount + rand.nextInt(type.maxBranchCount - type.minBranchCount + 1);
-        for (int i = 0; i < branchCount; i++) {
-            float branchLength = lastSegmentLength * (0.6f + rand.nextFloat() * 0.4f);
-            float branchThickness = thickness * 0.6f;
-            current.children.add(generateBranch(1, branchLength, branchThickness));
-        }
-
-        return root;
+        glDisable(GL_TEXTURE_2D);
+        glPopMatrix();
     }
 
-    private Branch generateBranch(int depth, float length, float thickness) {
+    @Override
+    public void drawSimplified() {
+        glPushMatrix();
+        glTranslatef(x, y, z);
+
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_BLEND);
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glDepthMask(true);
+        glEnable(GL_ALPHA_TEST);
+        glAlphaFunc(GL_GREATER, 0.5f);
+        glColor4f(1f, 1f, 1f, 1f);
+
+        if (type.renderStyle == TreeRenderStyle.SPRUCE) {
+            glCallList(spruceTrunkDisplayLists.get(type));
+        } else {
+            glCallList(trunkDisplayList);
+        }
+
+        glDisable(GL_ALPHA_TEST);
+        glDisable(GL_BLEND);
+        glDisable(GL_TEXTURE_2D);
+        glPopMatrix();
+    }
+
+    @Override
+    public void drawDepth() {
+        draw();
+    }
+
+    @Override
+    protected float getShadowRadius() {
+        return Math.max(type.leafSize * 0.7f, type.baseThickness * 1.8f);
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return height;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.5f;
+    }
+
+    private void drawBranchRecursive(Branch branch, int depth, boolean drawLeaves) {
+        glPushMatrix();
+
+        if (branch.applyOutwardTilt) {
+        if (branch.children.isEmpty()) {
+            if (drawLeaves) {
+                if (type.renderStyle == TreeRenderStyle.SPRUCE) {
+                    drawSpruceLeafRing(type.leafSize * 0.5f);
+                } else if (hasLeaves && depth >= 3) {
+                    drawCrownLeafPlanes();
+                }
+            }
+        } else {
+            for (Branch child : branch.children) {
+                drawBranchRecursive(child, depth + 1, drawLeaves);
+            }
+        }
         Branch b = new Branch();
         b.length = length;
         b.thickness = thickness;

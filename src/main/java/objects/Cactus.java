@@ -16,27 +16,49 @@ public class Cactus extends Feature {
 
     public Cactus(float x, float y, float z, long globalSeed) {
         super(x, y, z);
-
-        this.texture = TextureLoader.getOrLoad("cactus.png");
-
-        long seed = FeatureUtil.hashSeed(x, y, z, globalSeed);
-        this.rand = new Random(seed);
-
-        float height = 2.5f + rand.nextFloat() * 2.5f; // Taller cactus
         segments.add(new Segment(height, 0.3f, 0f, 0f)); // main trunk
 
         // Main arms
         int arms = 1 + rand.nextInt(3); // More arms
         for (int i = 0; i < arms; i++) {
             float armHeight = 1.0f + rand.nextFloat() * 0.8f;
-            float offsetY = 0.7f + rand.nextFloat() * (height - 1.5f);
-            float angle = rand.nextFloat() * 360f;
-            segments.add(new Segment(armHeight, 0.15f, offsetY, angle));
 
-            // Maybe split the arm!
             if (rand.nextFloat() < 0.5f) {
                 float splitHeight = 0.5f + rand.nextFloat() * 0.5f;
                 segments.add(new Segment(splitHeight, 0.1f, offsetY + armHeight * 0.5f, angle + rand.nextFloat() * 60f - 30f));
+            }
+        }
+
+        float maxSegmentHeight = 0f;
+        for (Segment segment : segments) {
+            maxSegmentHeight = Math.max(maxSegmentHeight, segment.offsetY + segment.height);
+        }
+        this.maxHeight = maxSegmentHeight;
+    }
+    public void draw() {
+        glPushMatrix();
+        glTranslatef(x, y, z);
+        glDisable(GL_BLEND);
+        glPopMatrix();
+    }
+
+    @Override
+    protected float getShadowRadius() {
+        return 0.6f;
+    }
+
+    @Override
+    protected float getShadowHeight() {
+        return maxHeight;
+    }
+
+    @Override
+    protected float getShadowAlpha() {
+        return 0.45f;
+    }
+
+    private void drawTexturedCylinder(float baseRadius, float height) {
+        glBegin(GL_QUAD_STRIP);
             }
         }
 
