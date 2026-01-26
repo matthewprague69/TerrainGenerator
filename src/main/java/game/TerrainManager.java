@@ -123,11 +123,13 @@ public class TerrainManager {
                 float chunkMinY = -20f;
                 float chunkMaxY = 100f; // fallback default
 
-                /*if (existing != null) {
+                if (existing != null) {
                     BoundingBox box = existing.getBoundingBox();
-                    chunkMinY = box.minY;
-                    chunkMaxY = box.maxY;
-                }*/
+                    if (box != null) {
+                        chunkMinY = box.minY;
+                        chunkMaxY = box.maxY;
+                    }
+                }
 
 // Now frustum cull properly
                 if (!frustum.isBoxVisible(chunkMinX, chunkMinY, chunkMinZ, chunkMaxX, chunkMaxY, chunkMaxZ))
@@ -139,16 +141,13 @@ public class TerrainManager {
 
                 int dist = Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz));
                 int targetLOD = 0;
-                /*
-                 * if (dist >= 15)
-                 * targetLOD = 3;
-                 * else if (dist >= 10)
-                 * targetLOD = 2;
-                 * else if (dist >= 5)
-                 * targetLOD = 1;
-                 */
+                if (dist >= renderDist - 1) {
+                    targetLOD = 2;
+                } else if (dist >= renderDist - 3) {
+                    targetLOD = 1;
+                }
 
-                if (existing == null || targetLOD < existing.getLOD()) {
+                if (existing == null || targetLOD != existing.getLOD()) {
                     Biome b = pickBiome(cx, cz);
                     Chunk upgraded = new Chunk(cx, cz, terrainNoise, scale, b, this, false, targetLOD);
                     if (existing != null)

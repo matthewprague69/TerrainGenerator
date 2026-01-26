@@ -34,6 +34,7 @@ public class Chunk {
     private int grassBatchVbo = -1;
     private int grassBatchVertexCount = 0;
     private int grassBatchTexture = 0;
+    private BoundingBox cachedBounds;
     public static final float WATER_LEVEL = 4.0f;
     public static final float WATER_SURROUNDING_LEVEL = 5.5f;
     public static final float ABSOLUTE_WATER_BOTTOM_HEIGHT = 1.0f;
@@ -117,6 +118,7 @@ public class Chunk {
         buildTerrainBuffers();
         buildWaterDisplayList();
         buildGrassBatch();
+        buildBoundingBox();
 
     }
 
@@ -629,6 +631,10 @@ public class Chunk {
     }
 
     public BoundingBox getBoundingBox() {
+        return cachedBounds;
+    }
+
+    private void buildBoundingBox() {
         float minX = cx * SIZE * scale;
         float minZ = cz * SIZE * scale;
         float maxX = (cx + 1) * SIZE * scale;
@@ -644,7 +650,7 @@ public class Chunk {
             }
         }
 
-        return new BoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
+        cachedBounds = new BoundingBox(minX, minY, minZ, maxX, maxY, maxZ);
     }
 
     public void dispose() {
