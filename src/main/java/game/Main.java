@@ -5,6 +5,7 @@ import org.lwjgl.glfw.*;
 import org.lwjgl.opengl.*;
 import org.lwjgl.system.*;
 import renderers.PixelTextRenderer;
+import renderers.ShadowRenderer;
 import renderers.SkyRenderer;
 import renderers.UIRenderer;
 import util.TextureLoader;
@@ -21,6 +22,7 @@ public class Main {
     private TerrainManager terrain;
     private Player player;
     private SkyRenderer sky;
+    private ShadowRenderer shadowRenderer;
 
     private boolean fullscreen = false;
     private final int windowedWidth = 1600;
@@ -63,6 +65,8 @@ public class Main {
 
         primaryMonitor = glfwGetPrimaryMonitor();
         glfwShowWindow(window);
+
+        shadowRenderer = new ShadowRenderer(2048);
     }
 
     private void setupProjection() {
@@ -127,8 +131,6 @@ public class Main {
 
         glEnable(GL_TEXTURE_2D);
 
-        setupProjection();
-
         double lastTime = glfwGetTime();
         boolean prevT = false;
         boolean prevZ = false;
@@ -175,6 +177,20 @@ public class Main {
             terrain.update(player.getX(), player.getZ(), frustum);
             sky.update(dt);
 
+            float[] lightDir = sky.getShadowDirection();
+            float lightStrength = sky.getSkyBrightness();
+            float[] lightMatrix = shadowRenderer.renderShadowMap(
+                    terrain,
+                    lightDir,
+                    player.getX(),
+                    player.getY(),
+                    player.getZ(),
+                    windowedWidth,
+                    windowedHeight
+            );
+
+            setupProjection();
+
             sky.renderSkybox();
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -186,8 +202,12 @@ public class Main {
 
             sky.setLightDirectionFixed(); // Then set light in world space
 
+            float[] viewMatrix = readModelViewMatrix();
+            float[] viewInverse = util.MatrixUtils.invert(viewMatrix);
 
+            shadowRenderer.beginScenePass(lightMatrix, lightDir, lightStrength, viewMatrix, viewInverse);
             terrain.draw();
+            shadowRenderer.endScenePass();
 
             sky.renderSunAndMoon(player.getX(), player.getY(), player.getZ());
             drawInfoOverlay();
@@ -209,5 +229,13 @@ public class Main {
         glfwDestroyWindow(window);
         glfwTerminate();
         glfwSetErrorCallback(null).free();
+    }
+
+    private float[] readModelViewMatrix() {
+        FloatBuffer buffer = BufferUtils.createFloatBuffer(16);
+        glGetFloatv(GL_MODELVIEW_MATRIX, buffer);
+        float[] matrix = new float[16];
+        buffer.get(matrix);
+        return matrix;
     }
 }
