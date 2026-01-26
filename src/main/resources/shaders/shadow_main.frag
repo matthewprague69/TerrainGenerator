@@ -39,8 +39,8 @@ void main() {
     vec3 normal = normalize(vNormal);
     vec3 lightDir = normalize((uViewMatrix * vec4(uLightDir, 0.0)).xyz);
     float ndl = max(dot(normal, -lightDir), 0.0);
-    float ambient = mix(0.12, 0.55, uLightStrength);
-    float diffuse = ndl * mix(0.08, 0.95, uLightStrength);
+    float ambient = mix(0.18, 0.6, uLightStrength);
+    float diffuse = ndl * mix(0.06, 0.75, uLightStrength);
     float lighting = ambient + diffuse;
     float shadow = computeShadow(vShadowCoord * 0.5 + 0.5, normal, lightDir);
     float shadowStrength = mix(0.25, 0.8, uLightStrength);
